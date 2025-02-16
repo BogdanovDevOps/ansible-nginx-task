@@ -1,0 +1,43 @@
+- name: Настройка Nginx на localhost
+  hosts: local
+  become: yes  # Выполнение задач с правами sudo
+  tasks:
+    - name: Установка Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Копирование пользовательского HTML-файла
+      copy:
+        src: files/index.html
+        dest: /var/www/html/index.html
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Настройка Nginx
+      template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/default
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Перезапуск Nginx
+
+    - name: Проверка работы Nginx
+      uri:
+        url: http://localhost
+        return_content: yes
+      register: nginx_response
+      failed_when: nginx_response.status != 200
+
+    - name: Вывод содержимого ответа
+      debug:
+        msg: "{{ nginx_response.content }}"
+
+  handlers:
+    - name: Перезапуск Nginx
+      service:
+        name: nginx
+        state: restarted
